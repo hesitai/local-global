@@ -1,0 +1,147 @@
+# ============================================================
+# Pure Blur DDEM：固定验证集的长期探路实验
+# ============================================================
+#
+# 数据划分（原始440张不移动、不删除）：
+#   训练：400对，20个完整序列
+#   验证： 40对，2个完整序列
+#
+# 验证序列：
+#   GOPR0386_11_00
+#   GOPR0857_11_00
+#
+# 可复现的划分规则与目录说明：
+# dataset/datasets/deblurring/GoPro/crop/validation_split_seed20260727.txt
+#
+# 本实验：
+#   - 只输入Blur，从随机初始化训练；
+#   - 不加载教师，不计算KD；
+#   - 初始LR=3e-4，最长10000 epoch；
+#   - 每100 epoch在固定40张验证集上验证一次；
+#   - 每次验证追加到运行目录下的 validation_results.csv；
+#   - 每1000 epoch保存一个永久checkpoint；
+#   - model_best.pth保存验证PSNR最高的模型；
+#   - model_latest.pth每100 epoch覆盖更新一次。
+#
+# 注意：最终1111张GoPro test没有参与训练、验证或超参数选择。
+# ============================================================
+
+cd "/home/xtl/hst/only student  3000"
+
+sh script/train_motiondeblur.sh \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_scratch_student \
+  --ddem_kd_weight 0 \
+  --kd_grad_stat_interval 0 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8 \
+  --adapter_warmup_epochs 0 \
+  --backbone_lr_scale 1.0 \
+  --lr_initial 0.0008 \
+  --batch_size 8 \
+  --train_ps 256 \
+  --train_dir "dataset/datasets/deblurring/GoPro/crop/train_split" \
+  --val_ps 256 \
+  --val_dir "dataset/datasets/deblurring/GoPro/crop/val_split" \
+  --val_epoch_interval 100 \
+  --grad_clip 1.0 \
+  --checkpoint 1000 \
+  --nepoch 10000 \
+  --env _omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_lr8e4_b8_e10000_val400_40
+
+
+# ============================================================
+# 中断后续训：恢复模型、AdamW状态和当前学习率进度
+# ============================================================
+#
+# model_latest.pth每100 epoch更新一次。当前文件为epoch 400，
+# 因而本命令从epoch 401继续，目标总epoch仍为10000。
+# validation_results.csv继续追加，不会清空已有验证记录。
+#
+# 必须确认原训练进程已经停止，不能与原进程同时运行。
+
+cd "/home/xtl/hst/only student  3000"
+
+sh script/train_motiondeblur.sh \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_scratch_student \
+  --ddem_kd_weight 0 \
+  --kd_grad_stat_interval 0 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8 \
+  --adapter_warmup_epochs 0 \
+  --backbone_lr_scale 1.0 \
+  --lr_initial 0.0008 \
+  --batch_size 8 \
+  --train_ps 256 \
+  --train_dir "dataset/datasets/deblurring/GoPro/crop/train_split" \
+  --val_ps 256 \
+  --val_dir "dataset/datasets/deblurring/GoPro/crop/val_split" \
+  --val_epoch_interval 100 \
+  --grad_clip 1.0 \
+  --checkpoint 1000 \
+  --nepoch 10000 \
+  --resume \
+  --pretrain_weights "logs/motiondeblur/GoPro/Uformer_B_omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_lr8e4_b8_e10000_val400_40/models/model_latest.pth" \
+  --env _omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_lr8e4_b8_e10000_val400_40
+
+
+# ============================================================
+# 第一步：LR Range Test（扫描后丢弃模型，不用于正式训练）
+# ============================================================
+#
+# 400张训练数据、batch size 8：每个epoch为50 iterations。
+# 本命令从1e-5指数增加到1e-3，最多运行2000 iterations
+#（约40 epoch），输出逐iteration的lr_range_results.csv。
+# 不执行warmup/cosine，不验证，不保存checkpoint。
+
+cd "/home/xtl/hst/only student  3000"
+
+sh script/train_motiondeblur.sh \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_scratch_student \
+  --ddem_kd_weight 0 \
+  --kd_grad_stat_interval 0 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8 \
+  --adapter_warmup_epochs 0 \
+  --backbone_lr_scale 1.0 \
+  --lr_initial 0.0003 \
+  --batch_size 8 \
+  --train_ps 256 \
+  --train_dir "dataset/datasets/deblurring/GoPro/crop/train_split" \
+  --grad_clip 1.0 \
+  --disable_validation \
+  --lr_range_test \
+  --lr_range_min 0.00001 \
+  --lr_range_max 0.01 \
+  --lr_range_iters 1000 \
+  --lr_range_smooth_beta 0.98 \
+  --lr_range_diverge_factor 4.0 \
+  --lr_range_burnin 100 \
+  --env _omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_lr_range_1e5_1e2_i1000
+
+# -------------------- 训练期间实时查看最近验证结果 --------------------
+# 在另一个终端执行；每10秒刷新一次，只读取CSV，不影响训练。
+watch -n 10 "tail -n 20 '/home/xtl/hst/only student  3000/logs/motiondeblur/GoPro/Uformer_B_omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_lr3e4_b8_e10000_val400_40/validation_results.csv'"

@@ -1,0 +1,119 @@
+# ============================================================
+# Blur-only 两轮训练实验
+# ============================================================
+
+# ============================================================
+# 第一阶段：Blur-only随机初始化训练3000 epoch
+# 已有测试结果：PSNR 31.6651 / SSIM 0.9245
+# ============================================================
+
+cd "/home/xtl/hst/only student  3000"
+
+# -------------------- 训练第一阶段3000 epoch -------------------
+sh script/train_motiondeblur.sh \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_scratch_student \
+  --ddem_kd_weight 0 \
+  --kd_grad_stat_interval 0 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8 \
+  --adapter_warmup_epochs 0 \
+  --backbone_lr_scale 1.0 \
+  --lr_initial 0.0002 \
+  --batch_size 8 \
+  --train_ps 256 \
+  --grad_clip 1.0 \
+  --disable_validation \
+  --checkpoint 1000 \
+  --nepoch 3000 \
+  --env _omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_equalLR_b8_e3000
+
+# -------------------- 测试第一阶段最终模型 ---------------------
+cd "/home/xtl/hst/only student  3000"
+
+python test/test_gopro_hide.py \
+  --input_dir "dataset/datasets/deblurring/GoPro/test" \
+  --result_dir "results/deblurring/GoPro/onlystudent_scratch_epoch3000_rect_ps256" \
+  --weights "logs/motiondeblur/GoPro/Uformer_B_omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_equalLR_b8_e3000/models/model_epoch_3000.pth" \
+  --gpus 0 \
+  --arch Uformer_B \
+  --train_ps 256 \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8
+
+# ============================================================
+# 第二阶段：使用第一阶段3000-epoch checkpoint重新训练3000 epoch
+#
+# 仅加载模型参数，不恢复旧optimizer、epoch和学习率状态；
+# 重新启动3-epoch warm-up和3000-epoch cosine学习率计划；
+# 不加载GT教师，不创建教师网络，不使用KD和梯度统计。
+#
+# 公平比较对象：
+# GT教师3000初始化 + KD=0学生3000
+# PSNR 32.1238 / SSIM 0.9306
+# ============================================================
+
+cd "/home/xtl/hst/only student  3000"
+
+# -------------------- 训练第二阶段3000 epoch -------------------
+sh script/train_motiondeblur.sh \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_scratch_student \
+  --init_weights "logs/motiondeblur/GoPro/Uformer_B_omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_scratch_equalLR_b8_e3000/models/model_epoch_3000.pth" \
+  --ddem_kd_weight 0 \
+  --kd_grad_stat_interval 0 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8 \
+  --adapter_warmup_epochs 0 \
+  --backbone_lr_scale 1.0 \
+  --lr_initial 0.0002 \
+  --batch_size 8 \
+  --train_ps 256 \
+  --grad_clip 1.0 \
+  --disable_validation \
+  --checkpoint 1000 \
+  --nepoch 3000 \
+  --env _omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_blurpretrain3000_restart3000_equalLR_b8_e3000
+
+# -------------------- 测试第二阶段最终模型 ---------------------
+cd "/home/xtl/hst/only student  3000"
+
+python test/test_gopro_hide.py \
+  --input_dir "dataset/datasets/deblurring/GoPro/test" \
+  --result_dir "results/deblurring/GoPro/onlystudent_blurpretrain3000_restart3000_epoch3000_rect_ps256" \
+  --weights "logs/motiondeblur/GoPro/Uformer_B_omni_stage_last_cam2x_lgddem_featurelocal_stageproj_onlystudent_blurpretrain3000_restart3000_equalLR_b8_e3000/models/model_epoch_3000.pth" \
+  --gpus 0 \
+  --arch Uformer_B \
+  --train_ps 256 \
+  --use_local_branch \
+  --use_channel_aware \
+  --double_process \
+  --use_ddem \
+  --ddem_stage 2 \
+  --ddem_dim 32 \
+  --ddem_blocks 2 \
+  --ddem_backbone local_global \
+  --ddem_heads 1 \
+  --ddem_win_size 8

@@ -1,0 +1,15 @@
+{
+  "real_dir": "/home/xtl/hst/joint2D/only student  3000/dataset/test_real",
+  "generated_dir": "/home/xtl/hst/joint2D/only student  3000/dataset/kid/ours",
+  "method_name": "ours",
+  "output_dir": "results/kid/ours",
+  "cache_dir": "results/kid_feature_cache",
+  "device": "auto",
+  "batch_size": 16,
+  "num_workers": 4,
+  "subset_size": 300,
+  "num_subsets": 100,
+  "seed": 1234,
+  "require_equal_counts": true,
+  "center_crop_size": 0
+}

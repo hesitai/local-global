@@ -1,0 +1,9 @@
+# 推荐在独立的 Python 3.10/3.11 评测环境安装。
+# PyIQA 依赖 timm>=0.8，与项目训练 requirements.txt 中 timm==0.6.13 不同。
+# torch / torchvision 请先按你的 CUDA 环境安装相互匹配的版本。
+pyiqa==0.1.13
+numpy>=1.24,<2
+opencv-python-headless>=4.8,<4.12
+scipy>=1.10,<2
+scikit-image>=0.21,<1
+Pillow>=9.4
